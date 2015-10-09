@@ -41,6 +41,7 @@ final class PlatformDependent0 {
     static final Unsafe UNSAFE;
     private static final boolean BIG_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN;
     private static final long ADDRESS_FIELD_OFFSET;
+    private static final long ARRAY_BASE_OFFSET;
 
     /**
      * Limits the number of bytes to copy per {@link Unsafe#copyMemory(long, long, long)} to allow safepoint polling
@@ -113,6 +114,7 @@ final class PlatformDependent0 {
         UNSAFE = unsafe;
 
         if (unsafe == null) {
+            ARRAY_BASE_OFFSET = -1;
             ADDRESS_FIELD_OFFSET = -1;
             UNALIGNED = false;
         } else {
@@ -132,6 +134,7 @@ final class PlatformDependent0 {
 
             UNALIGNED = unaligned;
             logger.debug("java.nio.Bits.unaligned: {}", UNALIGNED);
+            ARRAY_BASE_OFFSET = arrayBaseOffset();
         }
     }
 
@@ -232,6 +235,60 @@ final class PlatformDependent0 {
         }
     }
 
+    static byte getByte(byte[] data, int index) {
+        return UNSAFE.getByte(data, ARRAY_BASE_OFFSET + index);
+    }
+
+    static short getShort(byte[] data, int index) {
+        if (UNALIGNED) {
+            return UNSAFE.getShort(data, ARRAY_BASE_OFFSET + index);
+        } else if (BIG_ENDIAN) {
+            return (short) (getByte(index) << 8 | getByte(index + 1) & 0xff);
+        } else {
+            return (short) (getByte(index + 1) << 8 | getByte(index) & 0xff);
+        }
+    }
+
+    static int getInt(byte[] data, int index) {
+        if (UNALIGNED) {
+            return UNSAFE.getInt(data, ARRAY_BASE_OFFSET + index);
+        } else if (BIG_ENDIAN) {
+            return getByte(index) << 24 |
+                   (getByte(index + 1) & 0xff) << 16 |
+                   (getByte(index + 2) & 0xff) <<  8 |
+                   getByte(index + 3) & 0xff;
+        } else {
+            return getByte(index + 3) << 24 |
+                   (getByte(index + 2) & 0xff) << 16 |
+                   (getByte(index + 1) & 0xff) <<  8 |
+                   getByte(index) & 0xff;
+        }
+    }
+
+    static long getLong(byte[] data, int index) {
+        if (UNALIGNED) {
+            return UNSAFE.getLong(data, ARRAY_BASE_OFFSET + index);
+        } else if (BIG_ENDIAN) {
+            return (long) getByte(index) << 56 |
+                   ((long) getByte(index + 1) & 0xff) << 48 |
+                   ((long) getByte(index + 2) & 0xff) << 40 |
+                   ((long) getByte(index + 3) & 0xff) << 32 |
+                   ((long) getByte(index + 4) & 0xff) << 24 |
+                   ((long) getByte(index + 5) & 0xff) << 16 |
+                   ((long) getByte(index + 6) & 0xff) <<  8 |
+                   (long) getByte(index + 7) & 0xff;
+        } else {
+            return (long) getByte(index + 7) << 56 |
+                   ((long) getByte(index + 6) & 0xff) << 48 |
+                   ((long) getByte(index + 5) & 0xff) << 40 |
+                   ((long) getByte(index + 4) & 0xff) << 32 |
+                   ((long) getByte(index + 3) & 0xff) << 24 |
+                   ((long) getByte(index + 2) & 0xff) << 16 |
+                   ((long) getByte(index + 1) & 0xff) <<  8 |
+                   (long) getByte(index) & 0xff;
+        }
+    }
+
     static void putOrderedObject(Object object, long address, Object value) {
         UNSAFE.putOrderedObject(object, address, value);
     }
@@ -289,6 +346,62 @@ final class PlatformDependent0 {
             putByte(address + 2, (byte) (value >>> 16));
             putByte(address + 1, (byte) (value >>> 8));
             putByte(address, (byte) value);
+        }
+    }
+
+    static void putByte(byte[] data, int index, byte value) {
+        UNSAFE.putByte(data, ARRAY_BASE_OFFSET + index, value);
+    }
+
+    static void putShort(byte[] data, int index, short value) {
+        if (UNALIGNED) {
+            UNSAFE.putShort(data, ARRAY_BASE_OFFSET + index, value);
+        } else if (BIG_ENDIAN) {
+            putByte(data, index, (byte) (value >>> 8));
+            putByte(data, index + 1, (byte) value);
+        } else {
+            putByte(data, index + 1, (byte) (value >>> 8));
+            putByte(data, index, (byte) value);
+        }
+    }
+
+    static void putInt(byte[] data, int index, int value) {
+        if (UNALIGNED) {
+            UNSAFE.putInt(data, ARRAY_BASE_OFFSET + index, value);
+        } else if (BIG_ENDIAN) {
+            putByte(data, index, (byte) (value >>> 24));
+            putByte(data, index + 1, (byte) (value >>> 16));
+            putByte(data, index + 2, (byte) (value >>> 8));
+            putByte(data, index + 3, (byte) value);
+        } else {
+            putByte(data, index + 3, (byte) (value >>> 24));
+            putByte(data, index + 2, (byte) (value >>> 16));
+            putByte(data, index + 1, (byte) (value >>> 8));
+            putByte(data, index, (byte) value);
+        }
+    }
+
+    static void putLong(byte[] data, int index, long value) {
+        if (UNALIGNED) {
+            UNSAFE.putLong(data, ARRAY_BASE_OFFSET + index, value);
+        } else if (BIG_ENDIAN) {
+            putByte(data, index, (byte) (value >>> 56));
+            putByte(data, index + 1, (byte) (value >>> 48));
+            putByte(data, index + 2, (byte) (value >>> 40));
+            putByte(data, index + 3, (byte) (value >>> 32));
+            putByte(data, index + 4, (byte) (value >>> 24));
+            putByte(data, index + 5, (byte) (value >>> 16));
+            putByte(data, index + 6, (byte) (value >>> 8));
+            putByte(data, index + 7, (byte) value);
+        } else {
+            putByte(data, index + 7, (byte) (value >>> 56));
+            putByte(data, index + 6, (byte) (value >>> 48));
+            putByte(data, index + 5, (byte) (value >>> 40));
+            putByte(data, index + 4, (byte) (value >>> 32));
+            putByte(data, index + 3, (byte) (value >>> 24));
+            putByte(data, index + 2, (byte) (value >>> 16));
+            putByte(data, index + 1, (byte) (value >>> 8));
+            putByte(data, index, (byte) value);
         }
     }
 

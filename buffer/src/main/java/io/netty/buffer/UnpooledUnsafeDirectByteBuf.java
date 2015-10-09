@@ -33,7 +33,7 @@ import java.nio.channels.ScatteringByteChannel;
  */
 public class UnpooledUnsafeDirectByteBuf extends AbstractReferenceCountedByteBuf {
 
-    private static final boolean NATIVE_ORDER = ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN;
+    private static final boolean NATIVE_ORDER = PlatformDependent.isNativeOrder();
 
     private final ByteBufAllocator alloc;
 
